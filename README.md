@@ -27,7 +27,7 @@ El calendario anual usa `localStorage`, por lo que las semanas marcadas se conse
 
 ## Galería por carpetas
 
-Cada carpeta dentro de `assets/gallery/` se convierte automáticamente en un álbum cuando la web se sirve con un servidor local.
+Cada carpeta dentro de `assets/gallery/` puede convertirse en un álbum. Para que funcione en GitHub Pages, añade el álbum y sus fotos a `assets/gallery/gallery.json`.
 
 Ejemplo:
 
@@ -35,3 +35,12 @@ Ejemplo:
 - `assets/gallery/Salidas_La_Herradura/` aparece como `Salidas La Herradura`.
 
 Dentro de cada carpeta se muestran las imágenes con extensión `.jpg`, `.jpeg`, `.png`, `.webp`, `.avif` o `.gif`. Al hacer clic en un álbum se abre un modal con todas sus fotos.
+
+GitHub Pages no lista carpetas automáticamente, por eso la galería usa `gallery.json`. Si creas `assets/gallery/Maldivas_2026/`, añade algo así:
+
+```json
+{
+  "folder": "Maldivas_2026",
+  "photos": ["foto-01.jpg", "foto-02.jpg"]
+}
+```

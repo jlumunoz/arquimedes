@@ -3,7 +3,6 @@ const yearLabel = document.querySelector("#yearLabel");
 const yearSummary = document.querySelector("#yearSummary");
 const prevYearButton = document.querySelector("#prevYear");
 const nextYearButton = document.querySelector("#nextYear");
-const resetScheduleButton = document.querySelector("#resetSchedule");
 const albumGrid = document.querySelector("#albumGrid");
 const galleryModal = document.querySelector("#galleryModal");
 const modalBackdrop = document.querySelector("#modalBackdrop");
@@ -14,8 +13,8 @@ const modalFeatureImage = document.querySelector("#modalFeatureImage");
 const modalFeatureCaption = document.querySelector("#modalFeatureCaption");
 const modalThumbs = document.querySelector("#modalThumbs");
 
-const STORAGE_KEY = "arquimedesCourseWeeksAnnualV1";
 const GALLERY_ROOT = "assets/gallery/";
+const GALLERY_MANIFEST = `${GALLERY_ROOT}gallery.json`;
 const IMAGE_EXTENSIONS = /\.(avif|gif|jpe?g|png|webp)$/i;
 const BASE_YEAR = 2026;
 const DEFAULT_COURSE_WEEKS = {
@@ -46,27 +45,8 @@ const formatterLongDate = new Intl.DateTimeFormat("es-ES", {
 
 const today = startOfDay(new Date());
 let selectedYear = BASE_YEAR;
-let courseWeeks = loadCourseWeeks();
+const courseWeeks = { ...DEFAULT_COURSE_WEEKS };
 let galleryAlbums = [];
-
-function loadCourseWeeks() {
-  try {
-    return JSON.parse(localStorage.getItem(STORAGE_KEY)) || { ...DEFAULT_COURSE_WEEKS };
-  } catch {
-    return { ...DEFAULT_COURSE_WEEKS };
-  }
-}
-
-function saveCourseWeeks() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(courseWeeks));
-}
-
-function resetCourseWeeks() {
-  courseWeeks = { ...DEFAULT_COURSE_WEEKS };
-  selectedYear = BASE_YEAR;
-  saveCourseWeeks();
-  renderAnnualCalendar();
-}
 
 function startOfDay(date) {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate());
@@ -173,41 +153,31 @@ function createMonthCard(monthIndex) {
 
   for (let index = 0; index < 42; index += 1) {
     const date = addDays(calendarStart, index);
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = "month-day";
-    button.textContent = date.getDate();
-    button.setAttribute(
+    const day = document.createElement("span");
+    day.className = "month-day";
+    day.textContent = date.getDate();
+    day.setAttribute(
       "aria-label",
       `${date.getDate()} de ${formatterMonth.format(date)}`
     );
 
     if (date.getMonth() !== monthIndex) {
-      button.classList.add("outside");
-      button.disabled = true;
-    } else {
-      button.addEventListener("click", () => {
-        courseWeeks[monthKey] = toIsoDate(getMonday(date));
-        saveCourseWeeks();
-        renderAnnualCalendar();
-      });
+      day.classList.add("outside");
     }
 
     if (isSameDay(date, today)) {
-      button.classList.add("today");
+      day.classList.add("today");
     }
 
     if (selectedWeek && isSameWeek(date, selectedWeek)) {
-      button.classList.add("selected-week");
+      day.classList.add("selected-week");
       if (isSameDay(date, selectedWeek)) {
-        button.classList.add("week-start");
+        day.classList.add("week-start");
       }
-      button.setAttribute("aria-pressed", "true");
-    } else {
-      button.setAttribute("aria-pressed", "false");
+      day.setAttribute("aria-current", "date");
     }
 
-    grid.append(button);
+    grid.append(day);
   }
 
   const footer = document.createElement("div");
@@ -216,17 +186,7 @@ function createMonthCard(monthIndex) {
   const range = document.createElement("span");
   range.textContent = selectedWeek ? formatWeekRange(selectedWeek) : "No hay curso este mes";
 
-  const clearButton = document.createElement("button");
-  clearButton.type = "button";
-  clearButton.className = "clear-month";
-  clearButton.textContent = "Sin curso";
-  clearButton.addEventListener("click", () => {
-    delete courseWeeks[monthKey];
-    saveCourseWeeks();
-    renderAnnualCalendar();
-  });
-
-  footer.append(range, clearButton);
+  footer.append(range);
   monthCard.append(header, weekdays, grid, footer);
   return monthCard;
 }
@@ -240,8 +200,6 @@ nextYearButton.addEventListener("click", () => {
   selectedYear += 1;
   renderAnnualCalendar();
 });
-
-resetScheduleButton.addEventListener("click", resetCourseWeeks);
 
 function encodePathSegment(segment) {
   return segment.split("/").map(encodeURIComponent).join("/");
@@ -301,7 +259,48 @@ async function discoverAlbumPhotos(folderName) {
     }));
 }
 
+async function loadGalleryManifest() {
+  const response = await fetch(GALLERY_MANIFEST, { cache: "no-store" });
+  if (!response.ok) {
+    throw new Error(`No se pudo leer ${GALLERY_MANIFEST}`);
+  }
+
+  const albums = await response.json();
+
+  return albums
+    .map((album) => {
+      const folderName = album.folder || album.folderName;
+      const photos = Array.isArray(album.photos) ? album.photos : [];
+
+      if (!folderName) {
+        return {
+          folderName: "",
+          photos: [],
+          title: "",
+        };
+      }
+
+      return {
+        folderName,
+        photos: photos
+          .filter((fileName) => IMAGE_EXTENSIONS.test(fileName))
+          .map((fileName, index) => ({
+            caption: formatPhotoCaption(fileName, index),
+            fileName,
+            src: imageUrl(folderName, fileName),
+          })),
+        title: album.title || formatAlbumTitle(folderName || ""),
+      };
+    })
+    .filter((album) => album.folderName && album.photos.length > 0);
+}
+
 async function discoverGalleryAlbums() {
+  try {
+    return await loadGalleryManifest();
+  } catch {
+  }
+
   const html = await fetchDirectory(GALLERY_ROOT);
   const folders = parseDirectoryLinks(html)
     .filter((href) => href.endsWith("/"))

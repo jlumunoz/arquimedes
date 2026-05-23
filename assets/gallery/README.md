@@ -2,7 +2,7 @@
 
 Carpeta preparada para añadir álbumes propios de cursos y salidas.
 
-Cada carpeta se convierte en un álbum de forma automática cuando la web se sirve con un servidor local.
+Cada carpeta puede convertirse en un álbum. En GitHub Pages debes añadir la carpeta a `gallery.json`, porque GitHub Pages no permite listar carpetas automáticamente desde JavaScript.
 
 Ejemplo:
 
@@ -14,3 +14,5 @@ Dentro de cada carpeta puedes añadir imágenes:
 ```html
 assets/gallery/Maldivas_2026/inmersion-01.jpg
 ```
+
+Después añade el nombre del archivo a `assets/gallery/gallery.json`.
